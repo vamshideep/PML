@@ -1,0 +1,73 @@
+---
+title: "Predict the exercise"
+author: "Vamshideep Devershetty"
+date: "Saturday, August 23, 2014"
+output: html_document
+---
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(knitr)
+library(psych)
+library(caret)
+library(ggplot2)
+mydata <- read.csv("./data/pml-training.csv",na.strings=c("NA",""))
+testdata <- read.csv("./data/pml-testing.csv",na.strings=c("NA",""))
+names(mydata)
+dim(mydata)
+qplot(roll_arm,data=mydata,facets=.~classe)
+
+```
+Preprocessing Data:
+Removing all Nonzero variance columns
+```{r}
+nzv <- nearZeroVar(mydata)
+nzv
+cleandata <- mydata[,-nzv]
+dim(cleandata)
+names(cleandata)
+```
+Removing unneeded columns like timestamp, username, which donot effect the outcome
+```{r}
+
+nocol<-grep("timestamp|user_name|X",names(cleandata))
+nocol
+cleanerdata <- cleandata[,-nocol]
+dim(cleanerdata)
+names(cleanerdata)
+```
+removing all columns, which have more than 95% of missing values(NA)
+
+```{r}
+treshold <- dim(cleanerdata)[1] * 0.95
+badcolumns <- apply(cleanerdata, 2, function(x) sum(is.na(x)) > treshold  )
+#sum(is.na(cleanerdata[,"magnet_forearm_z"]))
+dim(cleanerdata[!badcolumns])
+cleanestdata <- cleanerdata[!badcolumns]
+
+```
+
+Split my Data into Training and Test sets
+
+```{r}
+inTrain <- createDataPartition(cleanestdata$classe, p=0.7, list= FALSE)
+training <- cleanestdata[inTrain,]
+testing <- cleanestdata[-inTrain,]
+dim(training)
+dim(testing)
+names(training)
+
+
+rfModel <- randomForest(classe ~ ., data = training, importance = TRUE, ntrees = 10)
+ptraining <- predict(rfModel, training)
+ptesting <- predict(rfModel, testing)
+print(confusionMatrix(ptesting,testing$classe))
+
+ptest <- predict(rfModel, testdata)
+ptest
+```
+
+```{r, echo=FALSE}
+rm(list=ls())
+```
+
